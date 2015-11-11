@@ -4,9 +4,9 @@
 #include <iostream>
 #include <algorithm>
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace cv;
 using namespace std;
@@ -35,6 +35,7 @@ namespace feat
 	void detectHarrisCorners(const Mat& imgSrc, Mat& imgDst, double alpha);
 	void drawCornerOnImage(Mat& image, const Mat&binary);
 	void detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst);
+	void detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha);
 }
 
 
