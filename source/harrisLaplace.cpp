@@ -153,7 +153,7 @@ void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
 
 	/* 尺度设置*/
 	double dSigmaStart = 0.5;
-	double dSigmaStep = 1.2;
+	double dSigmaStep = 1.4;
 	int iSigmaNb = 13;
 
 	vector<double> dvecSigma(iSigmaNb);
@@ -162,7 +162,7 @@ void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
 		dvecSigma[i] = dSigmaStart * pow(dSigmaStep,i+1);
 	}
 	vector<Mat> harrisArray(iSigmaNb);
-
+	Mat gray1;
 	for (int i = 0; i < iSigmaNb; i++)
 	{
 		double iSigmaI = dvecSigma[i];
@@ -170,13 +170,14 @@ void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
 
 		int iKernelSize = 6*round(iSigmaD) + 1;
 		
-		GaussianBlur(gray,gray,cv::Size(iKernelSize,iKernelSize),iSigmaD,iSigmaD);
+		//这里可能造成不断的对gray进行高斯模糊，而不是对每一个初始的gray进行不同的高斯模糊
+		GaussianBlur(gray,gray1,cv::Size(iKernelSize,iKernelSize),iSigmaD,iSigmaD);
 		Mat xKernel = (Mat_<double>(1,3) << -1, 0, 1);
 		Mat yKernel = xKernel.t();
 
 		Mat Ix,Iy;
-		filter2D(gray, Ix, CV_64F, xKernel);
-		filter2D(gray, Iy, CV_64F, yKernel);
+		filter2D(gray1, Ix, CV_64F, xKernel);
+		filter2D(gray1, Iy, CV_64F, yKernel);
 
 		Mat Ix2,Iy2,Ixy;
 		Ix2 = Ix.mul(Ix);
@@ -208,8 +209,30 @@ void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
 		double thresh = qualityLevel * maxStrength;
 		cornerMap = cornerStrength > thresh;
 		bitwise_and(cornerMap, localMax, cornerMap);
-		harrisArray[i] = cornerMap.clone();	
+		harrisArray[i] = cornerMap.clone();
 	}
+
+	/*计算尺度归一化Laplace算子*/
+	/*vector<Mat> laplaceSnlo(iSigmaNb);
+	for (int i = 0; i < iSigmaNb; i++)
+	{
+		double iSigmaI = dvecSigma[i];
+		int iKernelSize = 6*round(iSigmaI) + 1;
+
+		Mat gray2;
+		GaussianBlur(gray,gray2,cv::Size(iKernelSize,iKernelSize),iSigmaI,iSigmaI);
+		Mat xKernel = (Mat_<double>(1,3) << 1,-2, 1);
+		Mat yKernel = xKernel.t();
+
+		Mat Ixx,Iyy;
+		filter2D(gray2, Ixx, CV_64F, xKernel);
+		filter2D(gray2, Iyy, CV_64F, yKernel);
+
+		add(Ixx,Iyy,laplaceSnlo[i]);
+		laplaceSnlo[i] *= (iSigmaI * iSigmaI);
+	}*/
+
+	/*检测每个特征点在某一尺度LOG相应是否达到最大*/
 
 	/*计算尺度归一化Laplace算子*/
 	vector<Mat> laplaceSnlo(iSigmaNb);
@@ -221,8 +244,6 @@ void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
 		filter2D(gray, laplaceSnlo[i], CV_64F, hogKernel);
 		laplaceSnlo[i] *= (iSigmaL * iSigmaL);
 	}
-
-	/*检测每个特征点在某一尺度LOG相应是否达到最大*/
 	Mat corners(gray.size(), CV_8U, Scalar(0));
 	
 	for (int r = 0; r < gray.rows; r++)
