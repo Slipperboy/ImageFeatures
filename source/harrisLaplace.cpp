@@ -1,5 +1,13 @@
 #include "imgFeat.h"
 
+int round(double f)
+{ 
+	if ((int)f+0.5>f) 
+		return (int)f; 
+	else 
+		return (int)f + 1;   
+}
+
 void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 {
 	Mat gray;
@@ -13,7 +21,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 	}
 	gray.convertTo(gray, CV_64F);
 
-	/* ³ß¶ÈÉèÖÃ*/
+	/* å°ºåº¦è®¾ç½®*/
 	double dSigmaStart = 1.5;
 	double dSigmaStep = 1.2;
 	int iSigmaNb = 13;
@@ -31,7 +39,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 		double iSigmaD = 0.7 * iSigmaI;
 
 		int iKernelSize = 6*round(iSigmaD) + 1;
-		/*Î¢·ÖËã×Ó*/
+		/*å¾®åˆ†ç®—å­*/
 		Mat dx(1, iKernelSize, CV_64F);
 		for (int k =0; k < iKernelSize; k++)
 		{
@@ -42,7 +50,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 	
 		Mat dy = dx.t();
 		Mat Ix,Iy;
-		/*Í¼ÏñÎ¢·Ö*/
+		/*å›¾åƒå¾®åˆ†*/
 		filter2D(gray, Ix, CV_64F, dx);
 		filter2D(gray, Iy, CV_64F, dy);
 
@@ -57,7 +65,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 		filter2D(Iy2, Iy2, CV_64F, gaussKernel);
 		filter2D(Ixy, Ixy, CV_64F, gaussKernel);
 
-		/*×ÔÏà¹Ø¾ØÕó*/
+		/*è‡ªç›¸å…³çŸ©é˜µ*/
 		double alpha = 0.06;
 		Mat detM = Ix2.mul(Iy2) - Ixy.mul(Ixy);
 		Mat trace = Ix2 + Iy2;
@@ -81,7 +89,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 		harrisArray[i] = cornerMap.clone();	
 	}
 
-	/*¼ÆËã³ß¶È¹éÒ»»¯LaplaceËã×Ó*/
+	/*è®¡ç®—å°ºåº¦å½’ä¸€åŒ–Laplaceç®—å­*/
 	vector<Mat> laplaceSnlo(iSigmaNb);
 	for (int i = 0; i < iSigmaNb; i++)
 	{
@@ -92,7 +100,7 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 		laplaceSnlo[i] *= (iSigmaL * iSigmaL);
 	}
 	
-	/*¼ì²âÃ¿¸öÌØÕ÷µãÔÚÄ³Ò»³ß¶ÈLOGÏàÓ¦ÊÇ·ñ´ïµ½×î´ó*/
+	/*æ£€æµ‹æ¯ä¸ªç‰¹å¾ç‚¹åœ¨æŸä¸€å°ºåº¦LOGç›¸åº”æ˜¯å¦è¾¾åˆ°æœ€å¤§*/
 	Mat corners(gray.size(), CV_8U, Scalar(0));
 	for (int i = 0; i < iSigmaNb; i++)
 	{
@@ -128,5 +136,114 @@ void feat::detectHarrisLaplace(const Mat& imgSrc, Mat& imgDst)
 	}
 	imgDst = corners.clone();
 	
+}
+
+void feat::detectHarrisLaplace(Mat& imgSrc, Mat& imgDst,double alpha)
+{
+	Mat gray;
+	if (imgSrc.channels() == 3)
+	{
+		cvtColor(imgSrc, gray, CV_BGR2GRAY);
+	}
+	else
+	{
+		gray = imgSrc.clone();
+	}
+	gray.convertTo(gray, CV_64F);
+
+	/* å°ºåº¦è®¾ç½®*/
+	double dSigmaStart = 0.5;
+	double dSigmaStep = 1.2;
+	int iSigmaNb = 13;
+
+	vector<double> dvecSigma(iSigmaNb);
+	for (int i = 0; i < iSigmaNb; i++)
+	{
+		dvecSigma[i] = dSigmaStart * pow(dSigmaStep,i+1);
+	}
+	vector<Mat> harrisArray(iSigmaNb);
+
+	for (int i = 0; i < iSigmaNb; i++)
+	{
+		double iSigmaI = dvecSigma[i];
+		double iSigmaD = 0.7 * iSigmaI;
+
+		int iKernelSize = 6*round(iSigmaD) + 1;
+		
+		GaussianBlur(gray,gray,cv::Size(iKernelSize,iKernelSize),iSigmaD,iSigmaD);
+		Mat xKernel = (Mat_<double>(1,3) << -1, 0, 1);
+		Mat yKernel = xKernel.t();
+
+		Mat Ix,Iy;
+		filter2D(gray, Ix, CV_64F, xKernel);
+		filter2D(gray, Iy, CV_64F, yKernel);
+
+		Mat Ix2,Iy2,Ixy;
+		Ix2 = Ix.mul(Ix);
+		Iy2 = Iy.mul(Iy);
+		Ixy = Ix.mul(Iy);
+
+		int gSize = 6*round(iSigmaI) + 1;
+		Mat gaussKernel = getGaussianKernel(gSize, iSigmaI);
+		Mat gaussKernelD=gaussKernel*(iSigmaD*iSigmaD);
+		filter2D(Ix2, Ix2, CV_64F, gaussKernelD);
+		filter2D(Iy2, Iy2, CV_64F, gaussKernelD);
+		filter2D(Ixy, Ixy, CV_64F, gaussKernelD);
+
+		/*è‡ªç›¸å…³çŸ©é˜µ*/
+		Mat detM = Ix2.mul(Iy2) - Ixy.mul(Ixy);
+		Mat trace = Ix2 + Iy2;
+		Mat cornerStrength = detM - alpha * trace.mul(trace);
+
+		double maxStrength;
+		minMaxLoc(cornerStrength, NULL, &maxStrength, NULL, NULL);
+		Mat dilated;
+		Mat localMax;
+		dilate(cornerStrength, dilated, Mat());
+		compare(cornerStrength, dilated, localMax, CMP_EQ);
+
+
+		Mat cornerMap;
+		double qualityLevel = 0.01;
+		double thresh = qualityLevel * maxStrength;
+		cornerMap = cornerStrength > thresh;
+		bitwise_and(cornerMap, localMax, cornerMap);
+		harrisArray[i] = cornerMap.clone();	
+	}
+
+	/*è®¡ç®—å°ºåº¦å½’ä¸€åŒ–Laplaceç®—å­*/
+	vector<Mat> laplaceSnlo(iSigmaNb);
+	for (int i = 0; i < iSigmaNb; i++)
+	{
+		double iSigmaL = dvecSigma[i];
+		Size kSize = Size(6 * floor(iSigmaL) +1, 6 * floor(iSigmaL) +1);
+		Mat hogKernel = getHOGKernel(kSize,iSigmaL);
+		filter2D(gray, laplaceSnlo[i], CV_64F, hogKernel);
+		laplaceSnlo[i] *= (iSigmaL * iSigmaL);
+	}
+
+	/*æ£€æµ‹æ¯ä¸ªç‰¹å¾ç‚¹åœ¨æŸä¸€å°ºåº¦LOGç›¸åº”æ˜¯å¦è¾¾åˆ°æœ€å¤§*/
+	Mat corners(gray.size(), CV_8U, Scalar(0));
+	
+	for (int r = 0; r < gray.rows; r++)
+	{
+		for (int c = 0; c < gray.cols; c++)
+		{
+			for (int i = 1; i < iSigmaNb-1; i++)
+			{
+
+				if (harrisArray[i].at<uchar>(r,c) > 0 &&
+					laplaceSnlo[i].at<double>(r,c) > laplaceSnlo[i + 1].at<double>(r,c) &&
+					laplaceSnlo[i].at<double>(r,c) > laplaceSnlo[i - 1].at<double>(r,c))
+				{
+					//corners.at<uchar>(r,c) = 255;
+					circle(imgSrc, Point(c, r), 3*round(dvecSigma[i]), Scalar(0, 255, 0), 0);
+				}
+
+			}	
+		}
+	}
+	//imgDst = corners.clone();
+
 }
 
